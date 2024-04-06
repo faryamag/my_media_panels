@@ -46,9 +46,9 @@ def move_to_working_dir(filename: str | asyncio.Task,
 
 async def get_files_list_from_dir(
                                 machine: MediaMachine,
+                                async_events: dict[asyncio.Event],
                                 path: str = None,
-                                extensions: str | list | tuple = None,
-                                async_events: dict[asyncio.Event] = None
+                                extensions: str | list | tuple = None
                                 ):
 
     if extensions is None:
@@ -66,8 +66,8 @@ async def get_files_list_from_dir(
                                     get_md5(
                                         machine,
                                         os.path.split(name)[-1],
-                                        dir=machine.working_dir,
-                                        async_events=async_events
+                                        async_events=async_events,
+                                        dir_path=machine.working_dir
                                         )
                                     ) for name in names]
 
@@ -78,9 +78,9 @@ async def get_files_list_from_dir(
 
 
 async def delete_file(machine: MediaMachine,
+                      async_events: dict[asyncio.Event],
                       filename=None,
-                      md5hash=None,
-                      async_events: dict[asyncio.Event] = None
+                      md5hash=None
                       ) -> tuple[bool | Exception]:
     ''' При удалении считаем, что приоритн имеет значение хэша, если оно есть.
     Если его нет, то ориентируемся на имя файла и ищем хэш в имеющихся
@@ -143,18 +143,18 @@ async def delete_file(machine: MediaMachine,
 
 async def get_md5(machine: MediaMachine,
                   filename,
+                  async_events: dict[asyncio.Event],
                   chunk_size=1,
                   md5hash=None,
-                  dir=None,
-                  async_events: dict[asyncio.Event] = None
+                  dir_path=None
                   ) -> tuple[bool | str]:
     '''Функция для асинхронного подсчета хэша мд5 кусками
     (chunk_size) значения в МБ). Вернет кортеж результата
     сравнения с переданным хэшем, имя файла, и его хэш}'''
 
     await asyncio.sleep(0)
-    if dir is None:
-        dir = machine.downloading_dir
+    if dir_path is None:
+        dir_path = machine.downloading_dir
     event = async_events.get(filename, None)
     if event is None:
         event = asyncio.Event()
@@ -164,7 +164,7 @@ async def get_md5(machine: MediaMachine,
 
     chunk_size *= 1024*1024
     hash = hashlib.md5()
-    full_path = os.path.abspath(f'{dir}/{filename}')
+    full_path = os.path.abspath(f'{dir_path}/{filename}')
     if not os.path.exists(full_path):
         event.set()
         return (False, filename, 'broken_link')
@@ -222,12 +222,15 @@ async def set_current(machine: MediaMachine,
             url = f'{machine.srv_url}/files/{md5hash}'
         # Получаем файл
         print("Установщик текущего качает ", filename)
-        await api_requests.get_file(machine, url=url, filename=filename)
+        await api_requests.get_file(machine,
+                                    url=url,
+                                    filename=filename,
+                                    async_events=async_events)
         # Проверяем хэш
         hash_task = asyncio.create_task(get_md5(machine,
                                                 filename,
-                                                md5hash=md5hash,
-                                                async_events=async_events))
+                                                async_events=async_events,
+                                                md5hash=md5hash))
         # Перемещаем в рабочую директорию
         hash_task.add_done_callback(
             lambda task: move_to_working_dir(task, machine, async_events))
@@ -333,9 +336,10 @@ async def set_current(machine: MediaMachine,
 
 if __name__ == '__main__':
     async def main():
+        async_events={}
         machine = MediaMachine()
         filename = 'f3c6e05ef707d9b2354c81fde7fe67c7.mp4'
-        res = await get_md5(machine, filename, dir='./tmp')
+        res = await get_md5(machine, filename, async_events=async_events, dir_path='./tmp')
 
         print(res)
 

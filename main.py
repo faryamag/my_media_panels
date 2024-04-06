@@ -39,9 +39,9 @@ async def server_polling(machine: MediaMachine,
         if to_delete_list is not None:
             delete_tasks = [asyncio.create_task(files.delete_file(
                 machine=machine,
+                async_events=async_events,
                 filename=task.get('filename'),
-                md5hash=task.get('md5hash'),
-                async_events=async_events
+                md5hash=task.get('md5hash')
                 )) for task in to_delete_list]
 
             await asyncio.gather(*delete_tasks)

@@ -10,8 +10,8 @@ async def get_file(
         machine: MediaMachine,
         url,
         filename,
-        chunk_write_size=1024,
-        async_events: dict[asyncio.Event] = None):
+        async_events: dict[asyncio.Event],
+        chunk_write_size=1024,):
 
     async_events = {} if async_events is None else async_events
 
