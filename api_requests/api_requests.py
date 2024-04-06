@@ -1,16 +1,18 @@
-import aiohttp
-import aiofiles
 import asyncio
 import json
-import hashlib
 import os
-from datetime import datetime
-from time import time
+import aiofiles
+import aiohttp
 from models.machine import MediaMachine
-from system_works import files
 
 
-async def get_file(machine: MediaMachine, url, filename, chunk_write_size=1024, async_events: dict[asyncio.Event]=None):
+async def get_file(
+        machine: MediaMachine,
+        url,
+        filename,
+        chunk_write_size=1024,
+        async_events: dict[asyncio.Event] = None):
+
     async_events = {} if async_events is None else async_events
 
     if async_events.get(filename, None):
@@ -25,7 +27,11 @@ async def get_file(machine: MediaMachine, url, filename, chunk_write_size=1024, 
     resume_byte_pos = os.path.getsize(downloading_path) if resume_mode else 0
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers={"Range": f"bytes={resume_byte_pos}-"}) as response:
+        async with session.get(
+                            url,
+                            headers={"Range": f"bytes={resume_byte_pos}-"}
+                            ) as response:
+
             if response.status == 206 or not resume_mode:
                 mode = 'ab' if resume_mode else 'wb'
                 async with aiofiles.open(downloading_path, mode) as file:
@@ -38,7 +44,6 @@ async def get_file(machine: MediaMachine, url, filename, chunk_write_size=1024, 
     event.set()
 
 
-
 async def request_tasks(url, *, headers=None, params=None) -> dict | str:
 
     _headers = {'Content-Type': 'application/json'}
@@ -46,7 +51,11 @@ async def request_tasks(url, *, headers=None, params=None) -> dict | str:
         _headers.update(headers)
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=_headers, params=params, allow_redirects=True) as response:
+        async with session.get(url,
+                               headers=_headers,
+                               params=params,
+                               allow_redirects=True) as response:
+
             if response.status in (200, 201):
                 tasks = json.loads(await response.json())
                 return tasks.get('json', tasks)
@@ -69,7 +78,12 @@ async def send_response(data=None, *,  url=None, headers=None, params=None):
         _headers.update(headers)
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=data, headers=_headers, params=params, allow_redirects=True) as response:
+        async with session.post(url,
+                                json=data,
+                                headers=_headers,
+                                params=params,
+                                allow_redirects=True) as response:
+
             if response.status in (200, 201):
                 tasks = await response.json()
                 return tasks.get('json', tasks)

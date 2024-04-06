@@ -1,10 +1,4 @@
-import aiohttp
-import aiofiles
 import asyncio
-import json
-import hashlib
-import os
-import subprocess
 from datetime import datetime
 from time import time
 from models.machine import MediaMachine
@@ -27,12 +21,17 @@ async def set_schedule(machine: MediaMachine, task: dict):
     tsk['state'] = 'scheduled'
 
 
-async def start_scheduler(machine: MediaMachine, interval=1, async_events:dict[asyncio.Event]=None):
+async def start_scheduler(machine: MediaMachine,
+                          interval=1,
+                          async_events: dict[asyncio.Event] = None):
 
     while True:
         print("Новый цикл планировщика", time())
         for task in machine.scheduler:
-            if task['state'] in ('scheduled', 'current') and datetime.strptime(task['from'], machine.from_date_format) <= datetime.today():
+            if task['state'] in ('scheduled', 'current') and datetime.strptime(
+                                                    task['from'],
+                                                    machine.from_date_format
+                                                    ) <= datetime.today():
                 res = await files.set_current(
                                     machine=machine,
                                     filename=task['filename'],

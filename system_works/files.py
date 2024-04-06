@@ -75,7 +75,11 @@ async def get_files_list_from_dir(
     return files
 
 
-async def delete_file(machine: MediaMachine, filename=None, md5hash=None, async_events: dict[asyncio.Event]=None) -> tuple[bool | Exception]:
+async def delete_file(machine: MediaMachine,
+                      filename=None,
+                      md5hash=None,
+                      async_events: dict[asyncio.Event]=None
+                      ) -> tuple[bool | Exception]:
         ''' При удалении считаем, что приоритн имеет значение хэша, если оно есть.
         Если его нет, то ориентируемся на имя файла, и ищем хэш в имеющихся записях файлов
         по его имени. Удаляем найденные записи и файлы, если только файл не проигрывается '''
