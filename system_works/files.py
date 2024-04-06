@@ -52,7 +52,7 @@ async def get_files_list_from_dir(machine: MediaMachine, path: str = None, exten
     if isinstance(extension, str):
         extension = list(ex.strip() for ex in extension.split(','))
     names = [os.path.abspath(file) for file in os.listdir(path) if file.split('.')[-1] in extension]
-
+    print(names)
     hash_tasks = [asyncio.create_task(get_md5(machine, os.path.split(name)[-1], dir=machine.working_dir, async_events=async_events)) for name in names]
     await asyncio.gather(*hash_tasks)
     files = [{'filename': task.result()[1], 'md5hash': task.result()[2]} for task in hash_tasks]
