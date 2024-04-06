@@ -163,7 +163,7 @@ async def get_md5(machine: MediaMachine,
     event.clear()
 
     chunk_size *= 1024*1024
-    hash = hashlib.md5()
+    filehash = hashlib.md5()
     full_path = os.path.abspath(f'{dir_path}/{filename}')
     if not os.path.exists(full_path):
         event.set()
@@ -176,14 +176,14 @@ async def get_md5(machine: MediaMachine,
             chunk = await task
             if not chunk:
                 break
-            await asyncio.to_thread(hash.update, chunk)
+            await asyncio.to_thread(filehash.update, chunk)
 
     event.set()
 
     md5hash = filename.split('.', 1)[0] if md5hash is None else md5hash
 
-    print((md5hash == hash.hexdigest(), filename, hash.hexdigest()))
-    return (md5hash == hash.hexdigest(), filename, hash.hexdigest())
+    print((md5hash == filehash.hexdigest(), filename, filehash.hexdigest()))
+    return (md5hash == filehash.hexdigest(), filename, filehash.hexdigest())
 
 
 async def save_json(machine: MediaMachine):
@@ -321,7 +321,6 @@ async def set_current(machine: MediaMachine,
                                                  machine.service_name)
             print(f"Служба {machine.service_name} успешно запущена.")
         except Exception as e:
-            e
             err = f"Service start error: {machine.service_name}: {type(e).__name__}"
             print(f"Ошибка при запуске службы {machine.service_name}: {e}")
 
@@ -336,7 +335,7 @@ async def set_current(machine: MediaMachine,
 
 if __name__ == '__main__':
     async def main():
-        async_events={}
+        async_events = {}
         machine = MediaMachine()
         filename = 'f3c6e05ef707d9b2354c81fde7fe67c7.mp4'
         res = await get_md5(machine, filename, async_events=async_events, dir_path='./tmp')
