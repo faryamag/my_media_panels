@@ -1,20 +1,16 @@
-import aiohttp
-import aiofiles
 import asyncio
-import functools
 import json
 import hashlib
 import os
-import subprocess
-
 from datetime import datetime
-from time import time
+import aiofiles
 from api_requests import api_requests
-from models.machine import MediaMachine, FileStatus
+from models.machine import MediaMachine
 
 
-
-def move_to_working_dir(filename: str | asyncio.Task, machine: MediaMachine, async_events: dict[asyncio.Event]):
+def move_to_working_dir(filename: str | asyncio.Task,
+                        machine: MediaMachine,
+                        async_events: dict[asyncio.Event]):
     # Перенос файла в рабочую директорию с проверкой
 
     md5hash = None
@@ -29,13 +25,16 @@ def move_to_working_dir(filename: str | asyncio.Task, machine: MediaMachine, asy
     if isinstance(async_events.get(filename), asyncio.Event):
         print('Я переносчик файла', filename, async_events[filename].is_set())
         if not async_events[filename].is_set():
-            print('Я переносчик файла', filename, "Файл уже кто-то качает. Выхожу")
+            print('Я переносчик файла', filename, "Файл уже кто-то качает.Выхожу")
             return
 
     dst = os.path.abspath(f'{machine.working_dir}/{filename}')
     if os.path.exists(dst):
         os.remove(dst)
-    os.rename(src=os.path.abspath(f'{machine.downloading_dir}/{filename}'), dst=dst)
+    os.rename(
+        src=os.path.abspath(f'{machine.downloading_dir}/{filename}'),
+        dst=dst
+        )
 
     record = next((rec for rec in machine.files if rec.get('filename') == filename and rec.get('md5hash') == md5hash), None)
     if record is None:
@@ -43,7 +42,12 @@ def move_to_working_dir(filename: str | asyncio.Task, machine: MediaMachine, asy
     return True
 
 
-async def get_files_list_from_dir(machine: MediaMachine, path: str = None, extensions: str | list | tuple = None, async_events: dict[asyncio.Event]=None):
+async def get_files_list_from_dir(
+                                machine: MediaMachine,
+                                path: str = None,
+                                extensions: str | list | tuple = None,
+                                async_events: dict[asyncio.Event] = None
+                                ):
 
     if extensions is None:
         extension = 'mp4'
@@ -51,9 +55,20 @@ async def get_files_list_from_dir(machine: MediaMachine, path: str = None, exten
         path = machine.working_dir
     if isinstance(extension, str):
         extension = list(ex.strip() for ex in extension.split(','))
-    names = [os.path.abspath(file) for file in os.listdir(path) if file.split('.')[-1] in extension]
-    print(names)
-    hash_tasks = [asyncio.create_task(get_md5(machine, os.path.split(name)[-1], dir=machine.working_dir, async_events=async_events)) for name in names]
+    names = [os.path.abspath(file)
+             for file in os.listdir(path)
+             if (file.split('.')[-1] in extension)
+             and not os.path.islink(f'{path}/{file}')]
+
+    hash_tasks = [asyncio.create_task(
+                                    get_md5(
+                                        machine,
+                                        os.path.split(name)[-1],
+                                        dir=machine.working_dir,
+                                        async_events=async_events
+                                        )
+                                    ) for name in names]
+
     await asyncio.gather(*hash_tasks)
     files = [{'filename': task.result()[1], 'md5hash': task.result()[2]} for task in hash_tasks]
 
@@ -117,7 +132,6 @@ async def get_md5(machine: MediaMachine, filename, chunk_size=1, md5hash=None, d
     Вернет кортеж результата сравнения с переданным хэшем, имя файла, и его хэш}'''
 
     await asyncio.sleep(0)
-
     if dir is None:
         dir = machine.downloading_dir
     event = async_events.get(filename, None)
@@ -144,6 +158,9 @@ async def get_md5(machine: MediaMachine, filename, chunk_size=1, md5hash=None, d
             await asyncio.to_thread(hash.update, chunk)
 
     event.set()
+
+    md5hash = filename.split('.',1)[0] if md5hash is None else md5hash
+
     print((md5hash == hash.hexdigest(), filename, hash.hexdigest()))
     return (md5hash == hash.hexdigest(), filename, hash.hexdigest())
 

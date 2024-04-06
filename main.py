@@ -1,21 +1,19 @@
-import aiohttp
-import aiofiles
 import asyncio
-import functools
 import json
-import hashlib
 import os
-import subprocess
-
 from datetime import datetime
 from time import time
-#from api_requests import api_requests
-from models.machine import MediaMachine, FileStatus, JsonSections
+import aiofiles
+from models.machine import MediaMachine, JsonSections
 from api_requests import api_requests
 from system_works import files
 from scheduler import scheduler
 
-async def server_polling(machine: MediaMachine, interval=30, url=None, async_events: dict[asyncio.Event]=None):
+
+async def server_polling(machine: MediaMachine,
+                         interval=30,
+                         url=None,
+                         async_events: dict[asyncio.Event] = None):
 
     async_events = {} if async_events is None else async_events
 
@@ -27,8 +25,14 @@ async def server_polling(machine: MediaMachine, interval=30, url=None, async_eve
             url = f"{machine.srv_url}/device/{machine.info.get('serial')}"
             response = await api_requests.request_tasks(url=url)
         elif 'json' in url:
-            async with aiofiles.open(os.path.abspath(f'{machine.working_dir}/{machine.db_json}'), mode='r') as j_file:
-                response = json.loads(await j_file.read()).get(JsonSections.Schedule.value)
+            async with aiofiles.open(
+                    os.path.abspath(f'{machine.working_dir}/{machine.db_json}'),
+                    mode='r'
+                    ) as j_file:
+
+                response = json.loads(await j_file.read()).get(
+                    JsonSections.SCHEDULE.value)
+
         # Проверка данных в списках json ('schedule', 'current', 'delete'):
         # Запуск задач удаления
         to_delete_list = response.get('delete')
@@ -44,7 +48,7 @@ async def server_polling(machine: MediaMachine, interval=30, url=None, async_eve
             await files.save_json(machine)
 
         # Запуск задачи немедленной постановки файла проигрывания
-        make_current_list = response.get(JsonSections.Current.value, ())
+        make_current_list = response.get(JsonSections.CURRENT.value, ())
         if make_current_list is not None:
             current_tasks = [asyncio.create_task(
                 files.set_current(
@@ -62,14 +66,21 @@ async def server_polling(machine: MediaMachine, interval=30, url=None, async_eve
 
         # Запуск задач загрузки, сверки и планировки файла проигрывания
         scheduled_tasks = []
-        new_schedule = list(response.get(JsonSections.Schedule.value))
+        new_schedule = list(response.get(JsonSections.SCHEDULE.value))
         if new_schedule is not None:
-            new_schedule.sort(key=lambda x: datetime.strptime(x.get('from'), machine.from_date_format))
+            new_schedule.sort(key=lambda x: datetime.strptime(
+                            x.get('from'),
+                            machine.from_date_format
+                            ))
+
             for sch_task in new_schedule:
 
                 print("Загрузчик качает ", sch_task['filename'])
                 # Качаем, сверяем, переносим
-                if {'filename': sch_task.get('filename'), 'md5hash': sch_task.get('md5hash')} not in machine.files:
+                if {
+                        'filename': sch_task.get('filename'),
+                        'md5hash': sch_task.get('md5hash')
+                        } not in machine.files:
 
                     get_file_task = asyncio.create_task(api_requests.get_file(
                                         machine=machine,
@@ -92,7 +103,8 @@ async def server_polling(machine: MediaMachine, interval=30, url=None, async_eve
 
                     scheduled_tasks.extend([get_file_task, check_hash_task])
 
-                # Сверяем наличие полученно задачи во внутреннем планировщике и обновляем ее
+                # Сверяем наличие полученно задачи во внутреннем планировщике
+                # и обновляем ее
                 await scheduler.set_schedule(machine, sch_task)
 
             await asyncio.gather(*scheduled_tasks)
@@ -110,20 +122,28 @@ async def timer():
 async def main():
     async_events = dict()
 
-    machine = MediaMachine(working_dir='./media', srv_url='http://localhost:8000')
-    machine.files = await files.get_files_list_from_dir(machine)
-    machine.info['serial'] = '123test'
-    print(machine.info.get('serial'))
-    # file = 'test.mp4'
+    machine = MediaMachine(
+        working_dir='./media',
+        srv_url='http://localhost:8000'
+        )
+    machine.files = await files.get_files_list_from_dir(
+                                    machine=machine,
+                                    async_events=async_events)
 
+    # Добавляем фиктивные данные для теста
+    machine.info['serial'] = '123test'
     machine.info['displays'].append('7')
     machine.service_name = 'notepad'
 
-    #response = await api_requests.request_tasks(machine=machine, url='http://localhost:8000')
-    #print(response)
-
-    scheduler_instant = scheduler.start_scheduler(machine, interval=1, async_events=async_events)
-    poller = server_polling(machine, interval=1, async_events=async_events)
+    scheduler_instant = scheduler.start_scheduler(
+                            machine, interval=1,
+                            async_events=async_events
+                            )
+    poller = server_polling(
+                            machine,
+                            interval=1,
+                            async_events=async_events
+                            )
     await asyncio.gather(scheduler_instant, poller, timer())
     await files.save_json(machine)
 
