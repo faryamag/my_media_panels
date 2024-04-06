@@ -1,0 +1,13 @@
+env
+.venv
+.venv/
+core
+__pycache__
+__pycache__/
+uploads/
+tmp/
+.env
+# macOS
+.DS_Store
+media/
+test.db
