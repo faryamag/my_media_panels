@@ -19,7 +19,7 @@ class JsonSections(Enum):
         return self.value
 
 
-class FileStatus(Enum):
+class FileStates(Enum):
     # state in (None, 'scheduled', 'downloading', 'error')
 
     DOWNLOADING = 'downloading'

@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from time import time
-from models.machine import MediaMachine
+from models.machine import MediaMachine, JsonSections, FileStates
 from system_works import files
 from api_requests import api_requests
 
@@ -18,7 +18,7 @@ async def set_schedule(machine: MediaMachine, task: dict):
     if tsk is None:
         machine.scheduler.append(task)
         tsk = machine.scheduler[-1]
-    tsk['state'] = 'scheduled'
+    tsk['state'] = FileStates.SCHEDULED
 
 
 async def start_scheduler(machine: MediaMachine, interval=1):
@@ -26,7 +26,7 @@ async def start_scheduler(machine: MediaMachine, interval=1):
     while True:
         print("Новый цикл планировщика", time())
         for task in machine.scheduler:
-            if task['state'] in ('scheduled', 'current') and datetime.strptime(
+            if task['state'] in (FileStates.SCHEDULED, FileStates.CURRENT) and datetime.strptime(
                                                     task['from'],
                                                     machine.from_date_format
                                                     ) <= datetime.today():
@@ -41,7 +41,7 @@ async def start_scheduler(machine: MediaMachine, interval=1):
                 # Замена инфо о текущем файле в списке текущих
 
                 if res[0]:
-                    task['state'] = 'current'
+                    task['state'] = FileStates.CURRENT
                     await files.save_json(machine)
 
                 # отправка отчета серверу?
