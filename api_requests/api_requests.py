@@ -10,17 +10,11 @@ async def get_file(
         machine: MediaMachine,
         url,
         filename,
-        async_events: dict[asyncio.Event],
         chunk_write_size=1024,):
 
-    async_events = {} if async_events is None else async_events
-
-    if async_events.get(filename, None):
-        await async_events[filename].wait()
-        async_events[filename].clear()
-    else:
-        async_events[filename] = asyncio.Event()
-    event: asyncio.Event = async_events[filename]
+    file_handling_event = machine.get_event(filename)
+    await file_handling_event.wait()
+    file_handling_event.clear()
 
     downloading_path = os.path.abspath(f'{machine.downloading_dir}/{filename}')
     resume_mode = os.path.exists(downloading_path)
@@ -32,7 +26,9 @@ async def get_file(
                             headers={"Range": f"bytes={resume_byte_pos}-"}
                             ) as response:
 
-            if response.status == 206 or not resume_mode:
+            if response.status // 400:
+                 print(f"No such file: {filename}, status: {response.status}")
+            elif response.status == 206 or not resume_mode:
                 mode = 'ab' if resume_mode else 'wb'
                 async with aiofiles.open(downloading_path, mode) as file:
                     async for chunk in response.content.iter_chunked(chunk_write_size):
@@ -41,7 +37,7 @@ async def get_file(
             else:
                 print("Failed to resume download")
 
-    event.set()
+    file_handling_event.set()
 
 
 async def request_tasks(url, *, headers=None, params=None) -> dict | str:

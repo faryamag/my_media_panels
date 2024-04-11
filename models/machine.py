@@ -4,6 +4,7 @@ import os
 import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
+import asyncio
 
 
 class JsonSections(Enum):
@@ -39,6 +40,7 @@ class MediaMachine:
     srv_url: str = field(compare=False, default='http://localhost:8000')
     renew: bool = field(compare=False, default=False)
     info: dict = field(compare=False, init=False, default_factory=dict)
+    async_events: dict = field(compare=False, init=False, default_factory=dict[asyncio.Event])
 
     def __post_init__(self):
 
@@ -58,6 +60,7 @@ class MediaMachine:
             print(self.scheduler, e)
         self.info = self.get_info()
         # self.scheduler.sort(key=lambda x: datetime.strptime(x['from'], self.from_date_format))
+
 
     def get_info(self) -> dict:
         # Получаем инфо с raspberry в виде
@@ -87,3 +90,12 @@ class MediaMachine:
         sys_info.update({'downloading_dir': self.downloading_dir})
 
         return sys_info
+
+    def get_event(self, eventname: str) -> asyncio.Event:
+        '''Проверяет или заводит событие для контроля доступа к объекту(файлу)
+        инициирует и возвращает его'''
+
+        if self.async_events.get(eventname, None) is None:
+            self.async_events[eventname] = asyncio.Event()
+            self.async_events[eventname].set()
+        return self.async_events[eventname]

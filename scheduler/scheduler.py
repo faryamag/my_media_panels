@@ -21,9 +21,7 @@ async def set_schedule(machine: MediaMachine, task: dict):
     tsk['state'] = 'scheduled'
 
 
-async def start_scheduler(machine: MediaMachine,
-                          interval=1,
-                          async_events: dict[asyncio.Event] = None):
+async def start_scheduler(machine: MediaMachine, interval=1):
 
     while True:
         print("Новый цикл планировщика", time())
@@ -37,8 +35,7 @@ async def start_scheduler(machine: MediaMachine,
                                     filename=task['filename'],
                                     display=task['display'],
                                     md5hash=task['md5hash'],
-                                    url=task.get('url', None),
-                                    async_events=async_events
+                                    url=task.get('url', None)
                                     )
 
                 # Замена инфо о текущем файле в списке текущих
@@ -50,6 +47,7 @@ async def start_scheduler(machine: MediaMachine,
                 # отправка отчета серверу?
                 data = task.copy()
                 data.update({'status': res[0], 'error': res[1]})
+                print(data)
                 await api_requests.send_response(data=data, url='json')
 
         await asyncio.sleep(interval*60)

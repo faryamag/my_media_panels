@@ -12,10 +12,7 @@ from scheduler import scheduler
 
 async def server_polling(machine: MediaMachine,
                          interval=30,
-                         url=None,
-                         async_events: dict[asyncio.Event] = None):
-
-    async_events = {} if async_events is None else async_events
+                         url=None):
 
     while True:
         print("Новый цикл Загрузчика", time())
@@ -39,7 +36,6 @@ async def server_polling(machine: MediaMachine,
         if to_delete_list is not None:
             delete_tasks = [asyncio.create_task(files.delete_file(
                 machine=machine,
-                async_events=async_events,
                 filename=task.get('filename'),
                 md5hash=task.get('md5hash')
                 )) for task in to_delete_list]
@@ -56,8 +52,7 @@ async def server_polling(machine: MediaMachine,
                     filename=task.get('filename'),
                     display=task.get('display'),
                     md5hash=task.get('md5hash'),
-                    url=task.get('url'),
-                    async_events=async_events
+                    url=task.get('url')
                     )
                 ) for task in make_current_list]
 
@@ -68,8 +63,8 @@ async def server_polling(machine: MediaMachine,
         scheduled_tasks = []
         new_schedule = list(response.get(JsonSections.SCHEDULE.value))
         if new_schedule is not None:
-            new_schedule.sort(key=lambda x: datetime.strptime(
-                            x.get('from'),
+            new_schedule.sort(key=lambda rec: datetime.strptime(
+                            rec.get('from'),
                             machine.from_date_format
                             ))
 
@@ -85,20 +80,18 @@ async def server_polling(machine: MediaMachine,
                     get_file_task = asyncio.create_task(api_requests.get_file(
                                         machine=machine,
                                         url=sch_task.get('url'),
-                                        filename=sch_task['filename'],
-                                        async_events=async_events)
+                                        filename=sch_task['filename'])
                                         )
 
                     check_hash_task = asyncio.create_task(files.get_md5(
                                         machine=machine,
                                         filename=sch_task['filename'],
-                                        md5hash=sch_task['md5hash'],
-                                        async_events=async_events)
+                                        md5hash=sch_task['md5hash'])
                                         )
 
                     check_hash_task.add_done_callback(
                         lambda task: files.move_to_working_dir(
-                            task, machine, async_events
+                            task, machine
                             ))
 
                     scheduled_tasks.extend([get_file_task, check_hash_task])
@@ -120,15 +113,13 @@ async def timer():
 
 
 async def main():
-    async_events = dict()
 
     machine = MediaMachine(
         working_dir='./media',
         srv_url='http://localhost:8000'
         )
     machine.files = await files.get_files_list_from_dir(
-                                    machine=machine,
-                                    async_events=async_events)
+                                    machine=machine)
 
     # Добавляем фиктивные данные для теста
     machine.info['serial'] = '123test'
@@ -136,13 +127,11 @@ async def main():
     machine.service_name = 'notepad'
 
     scheduler_instant = scheduler.start_scheduler(
-                            machine, interval=1,
-                            async_events=async_events
+                            machine, interval=1
                             )
     poller = server_polling(
                             machine,
-                            interval=1,
-                            async_events=async_events
+                            interval=1
                             )
     await asyncio.gather(scheduler_instant, poller, timer())
     await files.save_json(machine)
