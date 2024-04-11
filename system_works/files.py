@@ -22,9 +22,9 @@ def move_to_working_dir(filename: str | asyncio.Task,
             filename = filename.result()[1]
 
     file_handling_event = machine.get_event(filename)
-    print('Я переносчик файла', filename, file_handling_event.is_set())
+    print('Я функция move_to_working_dirб переношу', filename, file_handling_event)
     if not file_handling_event.is_set():
-        print('Я переносчик файла', filename, "Файл уже кто-то качает.Выхожу",file_handling_event._waiters())
+        print('Я функция move_to_working_dirб переношу', filename, "Файл уже кто-то качает.Выхожу",file_handling_event._waiters())
         return
 
     dst = os.path.abspath(f'{machine.working_dir}/{filename}')
@@ -102,14 +102,14 @@ async def delete_file(machine: MediaMachine,
     # ниже механизм  предотвращения одновременного доступа к файлу
     # функций: загрузки (get_file), расчета хэша (get_md5hash) и удаления
     file_handling_event = machine.get_event(filename)
-    print('Я хочу удалить файл', filename, 'Жду события. Событие - ', file_handling_event)
+    print('Я функция delete_file, хочу удалить файл', filename, 'Жду события. Событие - ', file_handling_event)
     await file_handling_event.wait()
     file_handling_event.clear()
     # --------------
 
     if md5hash in (file['md5hash'] for file in machine.current):
         err = f'''{ValueError(
-            "Удалить невозможно: Указанный файл проигрывается в данный момент."
+            "Я функция delete_file, Удалить невозможно: Указанный файл проигрывается в данный момент."
             )}'''
         return (False, err)
 
@@ -124,10 +124,10 @@ async def delete_file(machine: MediaMachine,
             os.remove(downloading_file_path)
         if os.path.exists(file_path):
             os.remove(file_path)
-        print(f'{filename} удален')
+        print(f'Я функция delete_file, {filename} удален')
     except Exception as e:
         err = f'{type(e).__name__}, {e}'
-        print('удаляю', err)
+        print('Я функция delete_file, удаляю', err)
 
     file_handling_event.set()
     await save_json(machine)
@@ -172,7 +172,7 @@ async def get_md5(machine: MediaMachine,
 
     md5hash = filename.split('.', 1)[0] if md5hash is None else md5hash
 
-    print((md5hash == filehash.hexdigest(), filename, filehash.hexdigest()))
+    print('Я функция get_md5, сообщаю:', (md5hash == filehash.hexdigest(), filename, filehash.hexdigest()))
     return (md5hash == filehash.hexdigest(), filename, filehash.hexdigest())
 
 
@@ -210,7 +210,7 @@ async def set_current(machine: MediaMachine,
         if url is None:
             url = f'{machine.srv_url}/files/{md5hash}'
         # Получаем файл
-        print("Установщик текущего качает ", filename)
+        print("Я функция set_current,  качаю ", filename)
         await api_requests.get_file(machine,
                                     url=url,
                                     filename=filename)

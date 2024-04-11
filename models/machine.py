@@ -15,6 +15,9 @@ class JsonSections(Enum):
     CURRENT = 'current'
     FILES = 'files'
 
+    def __str__(self):
+        return self.value
+
 
 class FileStatus(Enum):
     # state in (None, 'scheduled', 'downloading', 'error')
@@ -25,6 +28,8 @@ class FileStatus(Enum):
     SCHEDULED = 'scheduled'
     ARCHIVED = 'archived'
 
+    def __str__(self):
+        return self.value
 
 @dataclass
 class MediaMachine:
