@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 import aiofiles
 from api_requests import api_requests
-from models.machine import MediaMachine
+from models.machine import MediaMachine, FileStates
 from models.api_collections import TaskCurrent
 
 
@@ -39,6 +39,75 @@ def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
     return True
 
 
+async def create_link(machine: MediaMachine, current_task: TaskCurrent):
+
+    filename = f"{current_task.md5hash}.mp4"
+    md5hash = current_task.md5hash
+    display = current_task.display
+    link = os.path.abspath(f'{machine.working_dir}/{current_task.display}_media.mp4')
+    file_path = os.path.abspath(f'{machine.working_dir}/{filename}')
+    err = None
+
+    # проверка наличия и корректности ссылки на файл
+    if os.path.exists(link) and os.readlink(link) == file_path:
+        return (False, f'{link} is set already')
+
+    if display is None or display not in machine.info['displays']:
+        print(False, f'ValueError: No such display {display}')
+        return (False, f'ValueError: No such display {display}')
+
+        # Остановка сервиса проигрывания
+    try:
+        await asyncio.create_subprocess_exec('sudo', 'systemctl',
+                                             'stop', machine.service_name)
+        print(f"Служба {machine.service_name} успешно остановлена.")
+    except Exception as e:
+        err = f"Service stop error: {machine.service_name}: {type(e).__name__}"
+        print(f"Ошибка при остановке службы {machine.service_name}: {e}")
+        # Замена ссылки. Начало ---------------
+
+    if os.path.islink(link):
+        os.remove(link)
+    os.symlink(file_path, link)
+
+    # Обновление ссылки в бд файлов:
+    current = next((task
+                    for task in machine.current
+                    if task.get('display', None) == display), None)
+
+    if current:
+        # Помечаем в планировщике что файл уже игрался
+        for task in machine.scheduler:
+            if (set(current.items()).issubset(task.items())
+                and datetime.strptime(task['from'],
+                                      machine.from_date_format) < datetime.today()):
+
+                task['state'] = FileStates.ARCHIVED.value
+
+        # ------
+        machine.current.remove(current)
+    machine.current.append({'display': display,
+                            'filename': filename,
+                            'md5hash': md5hash})
+
+    for record in machine.files:
+        if record['filename'] == f"{display}_media.mp4":
+            record['md5hash'] = md5hash
+    # Замена ссылки. Конец ---------------------
+    # Запуск сервиса проигрывания
+    try:
+        await asyncio.create_subprocess_exec('sudo',
+                                             'systemctl',
+                                             'start',
+                                             machine.service_name)
+        print(f"Служба {machine.service_name} успешно запущена.")
+    except Exception as e:
+        err = f"Service start error: {machine.service_name}: {type(e).__name__}"
+        print(f"Ошибка при запуске службы {machine.service_name}: {e}")
+
+    return (True, err)
+
+
 async def get_files_list_from_dir(
                             machine: MediaMachine,
                             extensions: str | list[str] | tuple[str] = 'mp4'
@@ -69,7 +138,7 @@ async def get_files_list_from_dir(
 async def delete_file(machine: MediaMachine,
                       filename=None,
                       md5hash=None
-                      ) -> tuple[bool | str]:
+                      ) -> tuple[bool, str]:
     ''' При удалении считаем, что приоритет имеет значение хэша, если оно есть.
     Если его нет, то ориентируемся на имя файла и ищем хэш в имеющихся
     записях файлов по его имени. Удаляем найденные записи и файлы,
@@ -139,7 +208,7 @@ async def get_md5(machine: MediaMachine,
                   chunk_size=1,
                   md5hash=None,
                   dir_path=None
-                  ) -> tuple[bool | str]:
+                  ) -> tuple[bool, str]:
     '''Функция для асинхронного подсчета хэша мд5 кусками
     (chunk_size) значения в МБ). Вернет кортеж результата
     сравнения с переданным хэшем, имя файла, и его хэш}'''
@@ -191,19 +260,20 @@ async def save_json(machine: MediaMachine):
 
 
 async def set_current(machine: MediaMachine,
-                      current_task: TaskCurrent) -> tuple[bool | str]:
+                      current_task: TaskCurrent) -> tuple[bool, str]:
     ''' Установка файла с именем file в качестве актуального, в случае передачи
     хэша и урл считаем за получение задания с сервера на немедленную проверку,
     закачку и установку файла в текущую задачу текущий файл должен иметь на
     себя ссылку в рабочем каталоги вида {display_name}_media.mp4 '''
 
     filename = f'{current_task.md5hash}.mp4'
-    link = os.path.abspath(f'{machine.working_dir}/{current_task.display}_media.mp4')
+    # link = os.path.abspath(f'{machine.working_dir}/{current_task.display}_media.mp4')
     file_path = os.path.abspath(f'{machine.working_dir}/{filename}')
     err = None
+
     # --- переработать и удалить:
     md5hash = current_task.md5hash
-    display = current_task.display
+    # display = current_task.display
     url = current_task.url
 
     # Проверка наличия файла в рабочей директории
@@ -213,7 +283,7 @@ async def set_current(machine: MediaMachine,
         # Получаем файл
         print("Я функция set_current,  качаю ", filename)
         await api_requests.get_file(machine,
-                                    url=url,
+                                    url=current_task.url,
                                     filename=filename)
         # Проверяем хэш
         hash_task = asyncio.create_task(get_md5(machine,
@@ -224,95 +294,18 @@ async def set_current(machine: MediaMachine,
             lambda task: move_to_working_dir(task, machine))
         await hash_task
 
-        # Должен быть ответ серверу, что хэш не есошелся
+        # Должен быть ответ серверу, что хэш не сошелся
         if not hash_task.result()[0]:
             err = f'{ValueError("Hash invalid or None")}'
+            responce_data = dict(**current_task)
+            responce_data.update({'error': err})
+            await api_requests.send_response(data=responce_data, url='json')
 
-    # проверка наличия и корректности ссылки на файл
-    if not os.path.exists(link) or os.readlink(link) != file_path:
-        # Остановка сервиса проигрывания
-        try:
-            await asyncio.create_subprocess_exec('sudo', 'systemctl', 'stop',
-                                                 machine.service_name)
-            print(f"Служба {machine.service_name} успешно остановлена.")
-        except Exception as e:
-            err = f"Service stop error: {machine.service_name}: {type(e).__name__}"
-            print(f"Ошибка при остановке службы {machine.service_name}: {e}")
+        # Замена ссылки
+    await create_link(machine=machine, current_task=current_task)
 
-        # Замена ссылки. Начало ---------------
-        if display is None and machine.info['displays'] is None:
-            print(False, 'ValueError: No display set')
-            return (False, 'ValueError: No display set')
-            # raise KeyError("No display set")
-        elif display is None:
-            tasks = []
-            for d in machine.info['displays']:
-                tasks.append(
-                    asyncio.create_task(
-                        set_current(machine=machine,
-                                    filename=filename,
-                                    display=d,
-                                    md5hash=md5hash,
-                                    url=url)
-                        ))
-
-            await asyncio.gather(*tasks)
-        elif display not in machine.info['displays']:
-            print(False, 'ValueError: No such display {display}')
-            return (False, 'ValueError: No such display {display}')
-        else:
-            if os.path.islink(link) or os.path.exists(link):
-                os.remove(link)
-            os.symlink(file_path, link)
-
-            # Обновление ссылки в бд файлов:
-            current = next((task
-                            for task in machine.current
-                            if task.get('display', None) == display), None)
-            if md5hash is None:
-                md5hash = next((el['md5hash']
-                                for el in machine.files
-                                if el['filename'] == filename), None)
-            if current:
-                # Помечаем в планировщике что файл уже игрался
-                machine.scheduler.sort(
-                    key=lambda x: datetime.strptime(x['from'],
-                                                    machine.from_date_format))
-                scheduled_task = [task
-                                  for task in machine.scheduler
-                                  if set(current.items()).issubset(task.items())
-                                  and datetime.strptime(task['from'],
-                                                        machine.from_date_format
-                                                        ) < datetime.today()]
-                if scheduled_task:
-                    scheduled_task[-1]['state'] = 'archived'
-                # ------
-                machine.current.remove(current)
-            machine.current.append({'display': display,
-                                    'filename': filename,
-                                    'md5hash': md5hash})
-
-            link_record = next((rec
-                                for rec in machine.files
-                                if rec['filename'] == f"{display}_media.mp4"), None)
-            if link_record:
-                machine.files.remove(link_record)
-            machine.files.append({'filename': f"{display}_media.mp4",
-                                  'md5hash': md5hash})
-        # Замена ссылки. Конец ---------------------
-        # Запуск сервиса проигрывания
-        try:
-            await asyncio.create_subprocess_exec('sudo',
-                                                 'systemctl',
-                                                 'start',
-                                                 machine.service_name)
-            print(f"Служба {machine.service_name} успешно запущена.")
-        except Exception as e:
-            err = f"Service start error: {machine.service_name}: {type(e).__name__}"
-            print(f"Ошибка при запуске службы {machine.service_name}: {e}")
-
-        # Обновление БД
-        await save_json(machine)
+    # Обновление БД
+    await save_json(machine)
 
     # Отправка серверу отчета об успешной замене
 

@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 import aiofiles
@@ -27,7 +26,7 @@ async def get_file(
                             ) as response:
 
             if response.status // 400:
-                 print(f"No such file: {filename}, status: {response.status}")
+                print(f"No such file: {filename}, status: {response.status}")
             elif response.status == 206 or not resume_mode:
                 mode = 'ab' if resume_mode else 'wb'
                 async with aiofiles.open(downloading_path, mode) as file:

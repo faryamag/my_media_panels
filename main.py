@@ -50,7 +50,7 @@ async def server_polling(machine: MediaMachine,
             current_tasks = [asyncio.create_task(
                 files.set_current(
                     machine=machine,
-                    current_task = TaskCurrent(**task)
+                    current_task=TaskCurrent(**task)
                     )
                 ) for task in make_current_list]
 
@@ -133,9 +133,5 @@ async def main():
     await asyncio.gather(scheduler_instant, poller, timer())
     await files.save_json(machine)
 
-    print(machine.info)
 
-
-start = time()
 asyncio.run(main())
-print(f'Выполнено за {time()-start}')
