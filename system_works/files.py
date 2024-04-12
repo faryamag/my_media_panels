@@ -6,6 +6,7 @@ from datetime import datetime
 import aiofiles
 from api_requests import api_requests
 from models.machine import MediaMachine
+from models.api_collections import TaskCurrent
 
 
 def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
@@ -190,18 +191,20 @@ async def save_json(machine: MediaMachine):
 
 
 async def set_current(machine: MediaMachine,
-                      filename: str,
-                      display=None,
-                      *,
-                      md5hash: str = None, url=None) -> tuple[bool | str]:
+                      current_task: TaskCurrent) -> tuple[bool | str]:
     ''' Установка файла с именем file в качестве актуального, в случае передачи
     хэша и урл считаем за получение задания с сервера на немедленную проверку,
     закачку и установку файла в текущую задачу текущий файл должен иметь на
     себя ссылку в рабочем каталоги вида {display_name}_media.mp4 '''
 
-    link = os.path.abspath(f'{machine.working_dir}/{display}_media.mp4')
+    filename = f'{current_task.md5hash}.mp4'
+    link = os.path.abspath(f'{machine.working_dir}/{current_task.display}_media.mp4')
     file_path = os.path.abspath(f'{machine.working_dir}/{filename}')
     err = None
+    # --- переработать и удалить:
+    md5hash = current_task.md5hash
+    display = current_task.display
+    url = current_task.url
 
     # Проверка наличия файла в рабочей директории
     if not os.path.exists(file_path):

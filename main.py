@@ -5,6 +5,7 @@ from datetime import datetime
 from time import time
 import aiofiles
 from models.machine import MediaMachine, JsonSections
+from models.api_collections import TaskCurrent
 from api_requests import api_requests
 from system_works import files
 from scheduler import scheduler
@@ -49,10 +50,7 @@ async def server_polling(machine: MediaMachine,
             current_tasks = [asyncio.create_task(
                 files.set_current(
                     machine=machine,
-                    filename=task.get('filename'),
-                    display=task.get('display'),
-                    md5hash=task.get('md5hash'),
-                    url=task.get('url')
+                    current_task = TaskCurrent(**task)
                     )
                 ) for task in make_current_list]
 

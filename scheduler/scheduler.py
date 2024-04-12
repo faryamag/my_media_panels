@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime
 from time import time
 from models.machine import MediaMachine, JsonSections, FileStates
+from models.api_collections import TaskCurrent
 from system_works import files
 from api_requests import api_requests
 
@@ -31,13 +32,10 @@ async def start_scheduler(machine: MediaMachine, interval=1):
                 and datetime.strptime(
                     task['from'],
                     machine.from_date_format) <= datetime.today()):
-
+                #print(task)
                 res = await files.set_current(
                                     machine=machine,
-                                    filename=task['filename'],
-                                    display=task['display'],
-                                    md5hash=task['md5hash'],
-                                    url=task.get('url', None)
+                                    current_task=TaskCurrent(**task)
                                     )
 
                 # Замена инфо о текущем файле в списке текущих
