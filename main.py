@@ -28,7 +28,7 @@ async def server_polling(machine: MediaMachine,
                     ) as j_file:
 
                 response = json.loads(await j_file.read()).get(
-                    JsonSections.SCHEDULE)
+                    JsonSections.SCHEDULE.value)
 
         # Проверка данных в списках json ('schedule', 'current', 'delete'):
         # Запуск задач удаления
@@ -44,7 +44,7 @@ async def server_polling(machine: MediaMachine,
             await files.save_json(machine)
 
         # Запуск задачи немедленной постановки файла проигрывания
-        make_current_list = response.get(JsonSections.CURRENT, ())
+        make_current_list = response.get(JsonSections.CURRENT.value, ())
         if make_current_list is not None:
             current_tasks = [asyncio.create_task(
                 files.set_current(
@@ -61,7 +61,7 @@ async def server_polling(machine: MediaMachine,
 
         # Запуск задач загрузки, сверки и планировки файла проигрывания
         scheduled_tasks = []
-        new_schedule = list(response.get(JsonSections.SCHEDULE))
+        new_schedule = list(response.get(JsonSections.SCHEDULE.value))
         if new_schedule is not None:
             new_schedule.sort(key=lambda rec: datetime.strptime(
                             rec.get('from'),

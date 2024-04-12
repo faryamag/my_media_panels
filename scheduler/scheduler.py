@@ -18,7 +18,7 @@ async def set_schedule(machine: MediaMachine, task: dict):
     if tsk is None:
         machine.scheduler.append(task)
         tsk = machine.scheduler[-1]
-    tsk['state'] = FileStates.SCHEDULED
+    tsk['state'] = FileStates.SCHEDULED.value
 
 
 async def start_scheduler(machine: MediaMachine, interval=1):
@@ -26,10 +26,12 @@ async def start_scheduler(machine: MediaMachine, interval=1):
     while True:
         print("Новый цикл планировщика", time())
         for task in machine.scheduler:
-            if task['state'] in (FileStates.SCHEDULED, FileStates.CURRENT) and datetime.strptime(
-                                                    task['from'],
-                                                    machine.from_date_format
-                                                    ) <= datetime.today():
+            if (task['state'] in (FileStates.SCHEDULED.value,
+                                  FileStates.CURRENT.value)
+                and datetime.strptime(
+                    task['from'],
+                    machine.from_date_format) <= datetime.today()):
+
                 res = await files.set_current(
                                     machine=machine,
                                     filename=task['filename'],
@@ -41,7 +43,7 @@ async def start_scheduler(machine: MediaMachine, interval=1):
                 # Замена инфо о текущем файле в списке текущих
 
                 if res[0]:
-                    task['state'] = FileStates.CURRENT
+                    task['state'] = FileStates.CURRENT.value
                     await files.save_json(machine)
 
                 # отправка отчета серверу?
