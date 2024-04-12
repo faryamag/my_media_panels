@@ -108,33 +108,6 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
     return (True, err)
 
 
-async def get_files_list_from_dir(
-                            machine: MediaMachine,
-                            extensions: str | list[str] | tuple[str] = 'mp4'
-                            ):
-
-    path = machine.working_dir
-    if isinstance(extensions, str):
-        extensions = list(ex.strip() for ex in extensions.split(','))
-    names = [os.path.abspath(file)
-             for file in os.listdir(path)
-             if (file.split('.')[-1] in extensions)
-             and not os.path.islink(f'{path}/{file}')]
-
-    hash_tasks = [asyncio.create_task(
-                                    get_md5(
-                                        machine,
-                                        os.path.split(name)[-1],
-                                        dir_path=machine.working_dir
-                                        )
-                                    ) for name in names]
-
-    await asyncio.gather(*hash_tasks)
-    files = [{'filename': task.result()[1], 'md5hash': task.result()[2]} for task in hash_tasks]
-
-    return files
-
-
 async def delete_file(machine: MediaMachine,
                       filename=None,
                       md5hash=None
@@ -201,6 +174,33 @@ async def delete_file(machine: MediaMachine,
     await save_json(machine)
 
     return bool(err is None), err
+
+
+async def get_files_list_from_dir(
+                            machine: MediaMachine,
+                            extensions: str | list[str] | tuple[str] = 'mp4'
+                            ):
+
+    path = machine.working_dir
+    if isinstance(extensions, str):
+        extensions = list(ex.strip() for ex in extensions.split(','))
+    names = [os.path.abspath(file)
+             for file in os.listdir(path)
+             if (file.split('.')[-1] in extensions)
+             and not os.path.islink(f'{path}/{file}')]
+
+    hash_tasks = [asyncio.create_task(
+                                    get_md5(
+                                        machine,
+                                        os.path.split(name)[-1],
+                                        dir_path=machine.working_dir
+                                        )
+                                    ) for name in names]
+
+    await asyncio.gather(*hash_tasks)
+    files = [{'filename': task.result()[1], 'md5hash': task.result()[2]} for task in hash_tasks]
+
+    return files
 
 
 async def get_md5(machine: MediaMachine,
