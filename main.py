@@ -118,8 +118,7 @@ async def main():
         working_dir='./media',
         srv_url='http://localhost:8000'
         )
-    machine.files = await files.get_files_list_from_dir(
-                                    machine=machine)
+    machine.files = await files.get_files_list_from_dir(machine=machine)
 
     # Добавляем фиктивные данные для теста
     machine.info['serial'] = '123test'

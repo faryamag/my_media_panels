@@ -8,33 +8,28 @@ from api_requests import api_requests
 from models.machine import MediaMachine
 
 
-def move_to_working_dir(filename: str | asyncio.Task,
-                        machine: MediaMachine):
+def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
     # Перенос файла в рабочую директорию с проверкой
 
-    md5hash = None
-    if isinstance(filename, asyncio.Task):
-        if not filename.result()[0]:
-            print("Hash not compared, aborting")
-            return False
-        else:
-            md5hash = filename.result()[2]
-            filename = filename.result()[1]
+    if not file_task.result()[0]:
+        print("Я - move_to_working_dir(callback), Hash not compared, aborting")
+        return False
+    else:
+        md5hash, filename = file_task.result()[2], file_task.result()[1]
 
     file_handling_event = machine.get_event(filename)
-    print('Я функция move_to_working_dirб переношу', filename, file_handling_event)
+    print('Я - move_to_working_dir, переношу', filename, file_handling_event)
     if not file_handling_event.is_set():
-        print('Я функция move_to_working_dirб переношу', filename, "Файл уже кто-то качает.Выхожу",file_handling_event._waiters())
+        print('Я - move_to_working_dir, переношу', filename, "Файл уже кто-то качает.Выхожу")
         return
 
-    dst = os.path.abspath(f'{machine.working_dir}/{filename}')
-    if os.path.exists(dst):
-        os.remove(dst)
-    os.rename(
-        src=os.path.abspath(f'{machine.downloading_dir}/{filename}'),
-        dst=dst
-        )
+    src_path = os.path.abspath(f'{machine.downloading_dir}/{filename}')
+    dst_path = os.path.abspath(f'{machine.working_dir}/{filename}')
+    if os.path.exists(dst_path):
+        os.remove(dst_path)
+    os.rename(src=src_path, dst=dst_path)
 
+    # Ниже - обновление записи в списке рабочих файлов. Мб стоит отсюда вынести
     record = next((rec for rec in machine.files
                    if rec.get('filename') == filename
                    and rec.get('md5hash') == md5hash), None)
@@ -44,20 +39,16 @@ def move_to_working_dir(filename: str | asyncio.Task,
 
 
 async def get_files_list_from_dir(
-                                machine: MediaMachine,
-                                path: str = None,
-                                extensions: str | list | tuple = None
-                                ):
+                            machine: MediaMachine,
+                            extensions: str | list[str] | tuple[str] = 'mp4'
+                            ):
 
-    if extensions is None:
-        extension = 'mp4'
-    if path is None:
-        path = machine.working_dir
-    if isinstance(extension, str):
-        extension = list(ex.strip() for ex in extension.split(','))
+    path = machine.working_dir
+    if isinstance(extensions, str):
+        extensions = list(ex.strip() for ex in extensions.split(','))
     names = [os.path.abspath(file)
              for file in os.listdir(path)
-             if (file.split('.')[-1] in extension)
+             if (file.split('.')[-1] in extensions)
              and not os.path.islink(f'{path}/{file}')]
 
     hash_tasks = [asyncio.create_task(
@@ -77,7 +68,7 @@ async def get_files_list_from_dir(
 async def delete_file(machine: MediaMachine,
                       filename=None,
                       md5hash=None
-                      ) -> tuple[bool | Exception]:
+                      ) -> tuple[bool | str]:
     ''' При удалении считаем, что приоритет имеет значение хэша, если оно есть.
     Если его нет, то ориентируемся на имя файла и ищем хэш в имеющихся
     записях файлов по его имени. Удаляем найденные записи и файлы,
@@ -85,19 +76,23 @@ async def delete_file(machine: MediaMachine,
 
     err = None
     if filename is None and md5hash is None:
-        err = ValueError("Ничего не передано для удаления")
+        err = f'{ValueError("Ничего не передано для удаления")}'
         return (False, err)
-
-    if md5hash is None:
+    elif md5hash is None:
         record = next((file
                        for file in machine.files
                        if file['filename'] == filename), {})
         md5hash = record.get('md5hash', None)
-    else:
+    elif filename is None:
         record = next((file
                        for file in machine.files
                        if file['md5hash'] == md5hash), {})
         filename = record.get('filename', md5hash)
+    else:
+        record = next((file
+                       for file in machine.files
+                       if file['md5hash'] == md5hash
+                       and file['filename'] == filename), {})
 
     # ниже механизм  предотвращения одновременного доступа к файлу
     # функций: загрузки (get_file), расчета хэша (get_md5hash) и удаления
@@ -111,28 +106,31 @@ async def delete_file(machine: MediaMachine,
         err = f'''{ValueError(
             "Я функция delete_file, Удалить невозможно: Указанный файл проигрывается в данный момент."
             )}'''
+        print(err)
+        file_handling_event.set()
         return (False, err)
 
-    downloading_file_path = os.path.abspath(
-                            f'{machine.downloading_dir}/{filename}')
-    file_path = os.path.abspath(f'{machine.working_dir}/{filename}')
+    files_to_delete = [
+        os.path.abspath(f'{machine.downloading_dir}/{filename}'),
+        os.path.abspath(f'{machine.working_dir}/{filename}')
+        ]
 
     try:
         if record in machine.files:
             machine.files.remove(record)
-        if os.path.exists(downloading_file_path):
-            os.remove(downloading_file_path)
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        for file in files_to_delete:
+            if os.path.exists(file):
+                os.remove(file)
+
         print(f'Я функция delete_file, {filename} удален')
     except Exception as e:
         err = f'{type(e).__name__}, {e}'
-        print('Я функция delete_file, удаляю', err)
+        print('Я функция delete_file, ошиблась:', err)
 
     file_handling_event.set()
     await save_json(machine)
 
-    return (True, err) if err is None else (False, err)
+    return bool(err is None), err
 
 
 async def get_md5(machine: MediaMachine,
