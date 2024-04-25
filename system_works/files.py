@@ -297,7 +297,7 @@ async def set_current(machine: MediaMachine,
         # Должен быть ответ серверу, что хэш не сошелся
         if not hash_task.result()[0]:
             err = f'{ValueError("Hash invalid or None")}'
-            responce_data = dict(**current_task)
+            responce_data = dict(current_task)
             responce_data.update({'error': err})
             await api_requests.send_response(data=responce_data, url='json')
 
