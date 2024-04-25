@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+from models.api_collections import CurrentInfo, ScheduledFile
+
 
 class MediaMachine(BaseModel):
 

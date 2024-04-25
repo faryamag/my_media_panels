@@ -62,7 +62,7 @@ async def server_polling(machine: MediaMachine,
         new_schedule = list(response.get(JsonSections.SCHEDULE.value))
         if new_schedule is not None:
             new_schedule.sort(key=lambda rec: datetime.strptime(
-                            rec.get('from'),
+                            rec.get('from_date'),
                             machine.from_date_format
                             ))
 

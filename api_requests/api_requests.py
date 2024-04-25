@@ -60,11 +60,12 @@ async def request_tasks(url, *, headers=None, params=None) -> dict | str:
 
 async def send_response(data=None, *,  url=None, headers=None, params=None):
 
-    data = json.dumps(data, indent=2)
+
 
     if url is None or url == 'json':
         # url = f"{machine.srv_url}/device/{machine.info['serial']}"
         print("Эту ерунду я пошлю на сервер:")
+        data = json.dumps(data, indent=2)
         print(data)
         return False
 
@@ -73,14 +74,17 @@ async def send_response(data=None, *,  url=None, headers=None, params=None):
         _headers.update(headers)
 
     async with aiohttp.ClientSession() as session:
+
         async with session.post(url,
                                 json=data,
                                 headers=_headers,
                                 params=params,
                                 allow_redirects=True) as response:
 
-            if response.status in (200, 201):
-                tasks = await response.json()
-                return tasks.get('json', tasks)
+            print(response.url, await response.text())
+            print("data=",data)
+            #if response.status in (200, 201):
+            ##    tasks = await response.json()
+            #    return tasks.get('json', tasks)
 
     return f'Response status error: {response.status}'

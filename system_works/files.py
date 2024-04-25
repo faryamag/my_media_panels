@@ -79,7 +79,7 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
         # Помечаем в планировщике что файл уже игрался
         for task in machine.scheduler:
             if (set(current.items()).issubset(task.items())
-                and datetime.strptime(task['from'],
+                and datetime.strptime(task['from_date'],
                                       machine.from_date_format) < datetime.today()):
 
                 task['state'] = FileStates.ARCHIVED.value
@@ -297,9 +297,9 @@ async def set_current(machine: MediaMachine,
         # Должен быть ответ серверу, что хэш не сошелся
         if not hash_task.result()[0]:
             err = f'{ValueError("Hash invalid or None")}'
-            responce_data = dict(current_task)
-            responce_data.update({'error': err})
-            await api_requests.send_response(data=responce_data, url='json')
+        responce_data = dict(current_task)
+        responce_data.update({'error': err})
+        await api_requests.send_response(data=responce_data, url=f"{machine.srv_url}/device/{machine.info['serial']}/current")
 
         # Замена ссылки
     await create_link(machine=machine, current_task=current_task)

@@ -13,7 +13,7 @@ async def set_schedule(machine: MediaMachine, task: dict):
     tsk = next((x for x in machine.scheduler if all((
         x['md5hash'] == task.get('md5hash'),
         x['filename'] == task.get('filename'),
-        x['from'] == task['from'],
+        x['from_date'] == task['from_date'],
         x['display'] == task['display']))), None)
 
     if tsk is None:
@@ -30,7 +30,7 @@ async def start_scheduler(machine: MediaMachine, interval=1):
             if (task['state'] in (FileStates.SCHEDULED.value,
                                   FileStates.CURRENT.value)
                 and datetime.strptime(
-                    task['from'],
+                    task['from_date'],
                     machine.from_date_format) <= datetime.today()):
                 #print(task)
                 res = await files.set_current(
@@ -48,6 +48,6 @@ async def start_scheduler(machine: MediaMachine, interval=1):
                 data = task.copy()
                 data.update({'status': res[0], 'error': res[1]})
                 print(data)
-                await api_requests.send_response(data=data, url='json')
+                await api_requests.send_response(data=data, url=f"{machine.srv_url}/device/{machine.info['serial']}/schedule")
 
         await asyncio.sleep(interval*60)

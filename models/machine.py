@@ -39,7 +39,7 @@ class MediaMachine:
     from_date_format: str = field(compare=False, default='%d.%m.%Y')
     service_name: str | None = field(default=None)  # Наименование активного сервиса воспроизведения медиа
     db_json: str = field(compare=False, default='db.json')
-    scheduler: list[dict] = field(default_factory=list)  # [{'display':str, 'from': datetime, 'filename':str, 'md5hash':str, 'state':str}]
+    scheduler: list[dict] = field(default_factory=list)  # [{'display':str, 'from_date': datetime, 'filename':str, 'md5hash':str, 'state':str}]
     current: list[dict] = field(default_factory=list)  # {'display':str, 'filename':str, 'md5hash':str}
     files: list = field(default_factory=list)
     srv_url: str = field(compare=False, default='http://localhost:8000')
@@ -64,7 +64,7 @@ class MediaMachine:
         except Exception as e:
             print(self.scheduler, e)
         self.info = self.get_info()
-        # self.scheduler.sort(key=lambda x: datetime.strptime(x['from'], self.from_date_format))
+        # self.scheduler.sort(key=lambda x: datetime.strptime(x['from_date'], self.from_date_format))
 
 
     def get_info(self) -> dict:
