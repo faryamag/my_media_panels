@@ -11,4 +11,4 @@ tmp/
 .DS_Store
 media/
 test.db
-*test*/
+myFastapi_templates/datafiles/
