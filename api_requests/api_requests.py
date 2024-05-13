@@ -27,6 +27,9 @@ async def get_file(
 
             if response.status // 400:
                 print(f"No such file: {filename}, status: {response.status}")
+                file_handling_event.set()
+                return
+
             elif response.status == 206 or not resume_mode:
                 mode = 'ab' if resume_mode else 'wb'
                 async with aiofiles.open(downloading_path, mode) as file:

@@ -19,20 +19,23 @@ async def set_schedule(machine: MediaMachine, task: dict):
     if tsk is None:
         machine.scheduler.append(task)
         tsk = machine.scheduler[-1]
-    tsk['state'] = FileStates.SCHEDULED.value
+        tsk['state'] = FileStates.SCHEDULED.value
 
 
 async def start_scheduler(machine: MediaMachine, interval=1):
 
     while True:
+        #try:
         print("Новый цикл планировщика", time())
+
         for task in machine.scheduler:
             if (task['state'] in (FileStates.SCHEDULED.value,
-                                  FileStates.CURRENT.value)
+                                FileStates.CURRENT.value)
                 and datetime.strptime(
                     task['from_date'],
                     machine.from_date_format) <= datetime.today()):
                 #print(task)
+
                 res = await files.set_current(
                                     machine=machine,
                                     current_task=TaskCurrent(**task)
@@ -48,6 +51,10 @@ async def start_scheduler(machine: MediaMachine, interval=1):
                 data = task.copy()
                 data.update({'status': res[0], 'error': res[1]})
                 print(data)
+                print(f'{machine.srv_url}')
                 await api_requests.send_response(data=data, url=f"{machine.srv_url}/device/{machine.info['serial']}/schedule")
-
+            else:
+                print("Нет подходящих задач")
+    #except Exception as exception:
+        #    print(f'Глобальная ошибка в цикле планировщика(scheduler.start_scheduler) {exception=}')
         await asyncio.sleep(interval*60)

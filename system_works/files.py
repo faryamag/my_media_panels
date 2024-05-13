@@ -259,6 +259,33 @@ async def save_json(machine: MediaMachine):
     return
 
 
+async def get_check_hash_and_move_file(machine: MediaMachine,
+                                       current_task: TaskCurrent):
+    filename = f'{current_task.md5hash}.mp4'
+    file_path = os.path.abspath(f'{machine.working_dir}/{filename}')
+    # Проверка наличия файла в рабочей директории
+    if not os.path.exists(file_path):
+        url = current_task.url
+        if url is None:
+            url = f'{machine.srv_url}/files/{current_task.md5hash}'
+        # Получаем файл
+        try:
+            await api_requests.get_file(machine,
+                                        url=url,
+                                        filename=filename)
+        except Exception as exception:
+            print(f'Error in files.set_current function with {filename=} request to {url=}. {exception=} ')
+            return
+
+        # Проверяем хэш
+        hash_task = asyncio.create_task(get_md5(machine,
+                                                filename,
+                                                md5hash=current_task.md5hash))
+        # Перемещаем в рабочую директорию
+        hash_task.add_done_callback(
+            lambda task: move_to_working_dir(task, machine))
+        await hash_task
+
 async def set_current(machine: MediaMachine,
                       current_task: TaskCurrent) -> tuple[bool, str]:
     ''' Установка файла с именем file в качестве актуального, в случае передачи
@@ -266,42 +293,24 @@ async def set_current(machine: MediaMachine,
     закачку и установку файла в текущую задачу текущий файл должен иметь на
     себя ссылку в рабочем каталоги вида {display_name}_media.mp4 '''
 
-    filename = f'{current_task.md5hash}.mp4'
     # link = os.path.abspath(f'{machine.working_dir}/{current_task.display}_media.mp4')
-    file_path = os.path.abspath(f'{machine.working_dir}/{filename}')
+
+    await get_check_hash_and_move_file(machine=machine, current_task=current_task)
     err = None
 
-    # --- переработать и удалить:
-    md5hash = current_task.md5hash
-    # display = current_task.display
-    url = current_task.url
 
-    # Проверка наличия файла в рабочей директории
-    if not os.path.exists(file_path):
-        if url is None:
-            url = f'{machine.srv_url}/files/{md5hash}'
-        # Получаем файл
-        print("Я функция set_current,  качаю ", filename)
-        await api_requests.get_file(machine,
-                                    url=current_task.url,
-                                    filename=filename)
-        # Проверяем хэш
-        hash_task = asyncio.create_task(get_md5(machine,
-                                                filename,
-                                                md5hash=md5hash))
-        # Перемещаем в рабочую директорию
-        hash_task.add_done_callback(
-            lambda task: move_to_working_dir(task, machine))
-        await hash_task
+    # Должен быть ответ серверу, что хэш не сошелся
+    ''' ... или нет
+    if not hash_task.result()[0]:
+        err = f'{ValueError("Hash invalid or None")}'
+    responce_data = dict(current_task)
+    responce_data.update({'error': err})
 
-        # Должен быть ответ серверу, что хэш не сошелся
-        if not hash_task.result()[0]:
-            err = f'{ValueError("Hash invalid or None")}'
-        responce_data = dict(current_task)
-        responce_data.update({'error': err})
-        await api_requests.send_response(data=responce_data, url=f"{machine.srv_url}/device/{machine.info['serial']}/current")
+    await api_requests.send_response(data=responce_data, url=f"{machine.srv_url}/device/{machine.info['serial']}/current")
+    '''
 
-        # Замена ссылки
+    # Замена ссылки
+    #Добавить условие, что ссылка не та же
     await create_link(machine=machine, current_task=current_task)
 
     # Обновление БД

@@ -19,19 +19,21 @@ async def server_polling(machine: MediaMachine,
         print("Новый цикл Загрузчика", time())
         # Процедура запроса заднных к серверу
         # Запрос данных серверу:
-        if url is None:
-            url = f"{machine.srv_url}/device/{machine.info.get('serial')}"
-            response = await api_requests.request_tasks(url=url)
-        elif 'json' in url:
+        if url and 'json' in url:
             async with aiofiles.open(
                     os.path.abspath(f'{machine.working_dir}/{machine.db_json}'),
                     mode='r'
                     ) as j_file:
-
                 response = json.loads(await j_file.read()).get(
                     JsonSections.SCHEDULE.value)
         else:
+            url = url if url else f"{machine.srv_url}/device/{machine.info.get('serial')}"
             response = await api_requests.request_tasks(url=url)
+
+        if not isinstance(response, dict):
+            print("RESPONSE=", response)
+            response = {}
+
         # Проверка данных в списках json ('schedule', 'current', 'delete'):
         # Запуск задач удаления
         to_delete_list = response.get('delete')
@@ -60,7 +62,8 @@ async def server_polling(machine: MediaMachine,
 
         # Запуск задач загрузки, сверки и планировки файла проигрывания
         scheduled_tasks = []
-        new_schedule = list(response.get(JsonSections.SCHEDULE.value))
+        new_schedule = response.get(JsonSections.SCHEDULE.value)
+
         if new_schedule is not None:
             new_schedule.sort(key=lambda rec: datetime.strptime(
                             rec.get('from_date'),
@@ -98,10 +101,11 @@ async def server_polling(machine: MediaMachine,
                 # Сверяем наличие полученно задачи во внутреннем планировщике
                 # и обновляем ее
                 await scheduler.set_schedule(machine, sch_task)
-
+        try:
             await asyncio.gather(*scheduled_tasks)
             await files.save_json(machine)
-
+        except Exception as exception:
+            print(f'Глобальная ошибка в main.server_pooling {exception=}')
         await asyncio.sleep(interval*60)
 
 
