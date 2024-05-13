@@ -57,7 +57,12 @@ async def schedule_response(sn:str, data: ScheduledFile):
     async with aiofiles.open(info_json, mode="a+") as info:
         await info.seek(0)
         actual_info = json.loads(await info.read())
-        scheduled_file = next((record for record in actual_info['schedule'] if record.get('md5hash') == data.display and  record.get('from_date') == data.from_date), {})
+
+        scheduled_file = next((record for record in actual_info['schedule']
+                               if record.get('display') == data.display
+                               and record.get('md5hash') == data.md5hash
+                               and  record.get('from_date') == data.from_date), {})
+
         if scheduled_file in actual_info['schedule']:
             actual_info['schedule'].remove(scheduled_file)
         scheduled_file.update(data.model_dump())

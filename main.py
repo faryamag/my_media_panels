@@ -30,7 +30,8 @@ async def server_polling(machine: MediaMachine,
 
                 response = json.loads(await j_file.read()).get(
                     JsonSections.SCHEDULE.value)
-
+        else:
+            response = await api_requests.request_tasks(url=url)
         # Проверка данных в списках json ('schedule', 'current', 'delete'):
         # Запуск задач удаления
         to_delete_list = response.get('delete')
