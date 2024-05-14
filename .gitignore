@@ -13,3 +13,4 @@ media/
 test.db
 myFastapi_templates/datafiles/
 test_response.py
+config.cfg

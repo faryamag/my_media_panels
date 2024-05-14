@@ -9,7 +9,7 @@ from models.api_collections import TaskCurrent
 from api_requests import api_requests
 from system_works import files
 from scheduler import scheduler
-
+import configparser
 
 async def server_polling(machine: MediaMachine,
                          interval=30,
@@ -117,16 +117,22 @@ async def timer():
 
 async def main():
 
+    config = configparser.ConfigParser()
+    config.read('config.cfg')
+
     machine = MediaMachine(
-        working_dir='./media',
-        srv_url='http://localhost:8000'
+        working_dir=config['local']['working_dir'],
+        srv_url=config['server']['url']
         )
+
     machine.files = await files.get_files_list_from_dir(machine=machine)
+
+    print(machine.working_dir)
 
     # Добавляем фиктивные данные для теста
     machine.info['serial'] = '123test'
     machine.info['displays'].append('7')
-    machine.service_name = 'notepad'
+    machine.service_name = config['local']['service']
 
     scheduler_instant = scheduler.start_scheduler(
                             machine, interval=1
