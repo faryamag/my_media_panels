@@ -10,6 +10,9 @@ from api_requests import api_requests
 from system_works import files
 from scheduler import scheduler
 import configparser
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def server_polling(machine: MediaMachine,
                          interval=30,
@@ -116,9 +119,11 @@ async def timer():
 
 
 async def main():
-
     config = configparser.ConfigParser()
     config.read('config.cfg')
+
+    logging.basicConfig(filename=config['local']['log_file'], level=logging.INFO, format='%(asctime)s %(levelname)s:%(module)s.%(funcName)s: %(message)s')
+    logger.info('Started')
 
     machine = MediaMachine(
         working_dir=config['local']['working_dir'],
@@ -143,6 +148,7 @@ async def main():
                             )
     await asyncio.gather(scheduler_instant, poller, timer())
     await files.save_json(machine)
+    logger.info('Finish')
 
 
 asyncio.run(main())

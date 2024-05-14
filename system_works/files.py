@@ -7,7 +7,9 @@ import aiofiles
 from api_requests import api_requests
 from models.machine import MediaMachine, FileStates
 from models.api_collections import TaskCurrent
+import logging
 
+logger = logging.getLogger(__name__)
 
 def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
     # Перенос файла в рабочую директорию с проверкой
@@ -270,10 +272,12 @@ async def get_check_hash_and_move_file(machine: MediaMachine,
             url = f'{machine.srv_url}/files/{current_task.md5hash}'
         # Получаем файл
         try:
+            raise Exception('test exception')
             await api_requests.get_file(machine,
                                         url=url,
                                         filename=filename)
         except Exception as exception:
+            logger.error(exception)
             print(f'Error in files.set_current function with {filename=} request to {url=}. {exception=} ')
             return
 
