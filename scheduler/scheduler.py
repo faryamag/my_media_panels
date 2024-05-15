@@ -5,7 +5,9 @@ from models.machine import MediaMachine, JsonSections, FileStates
 from models.api_collections import TaskCurrent
 from system_works import files
 from api_requests import api_requests
+import logging
 
+logger = logging.getLogger(__name__)
 
 async def set_schedule(machine: MediaMachine, task: dict):
     '''Ставим статус 'scheduled' заданию из списка задач'''
@@ -25,8 +27,7 @@ async def set_schedule(machine: MediaMachine, task: dict):
 async def start_scheduler(machine: MediaMachine, interval=1):
 
     while True:
-        #try:
-        print("Новый цикл планировщика", time())
+        logger.info("Новый цикл планировщика")
 
         for task in machine.scheduler:
             if (task['state'] in (FileStates.SCHEDULED.value,
@@ -34,7 +35,7 @@ async def start_scheduler(machine: MediaMachine, interval=1):
                 and datetime.strptime(
                     task['from_date'],
                     machine.from_date_format) <= datetime.today()):
-                #print(task)
+
 
                 res = await files.set_current(
                                     machine=machine,
@@ -50,11 +51,9 @@ async def start_scheduler(machine: MediaMachine, interval=1):
                 # отправка отчета серверу?
                 data = task.copy()
                 data.update({'status': res[0], 'error': res[1]})
-                print(data)
-                print(f'{machine.srv_url}')
+                logger.info(f'{task=} {data=}')
                 await api_requests.send_response(data=data, url=f"{machine.srv_url}/device/{machine.info['serial']}/schedule")
             else:
-                print("Нет подходящих задач")
-    #except Exception as exception:
-        #    print(f'Глобальная ошибка в цикле планировщика(scheduler.start_scheduler) {exception=}')
+                logger.info("Нет подходящих задач")
+
         await asyncio.sleep(interval*60)

@@ -15,15 +15,15 @@ def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
     # Перенос файла в рабочую директорию с проверкой
 
     if not file_task.result()[0]:
-        print("Я - move_to_working_dir(callback), Hash not compared, aborting")
+        logger.info("Hash not compared, aborting")
         return False
     else:
         md5hash, filename = file_task.result()[2], file_task.result()[1]
 
     file_handling_event = machine.get_event(filename)
-    print('Я - move_to_working_dir, переношу', filename, file_handling_event)
+    logger.info(f"Переношу, {filename, file_handling_event}")
     if not file_handling_event.is_set():
-        print('Я - move_to_working_dir, переношу', filename, "Файл уже кто-то качает.Выхожу")
+        logger.warning(f"переношу - {filename}, Файл уже кто-то качает.Выхожу")
         return
 
     src_path = os.path.abspath(f'{machine.downloading_dir}/{filename}')
@@ -55,17 +55,18 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
         return (False, f'{link} is set already')
 
     if display is None or display not in machine.info['displays']:
-        print(False, f'ValueError: No such display {display}')
-        return (False, f'ValueError: No such display {display}')
+        result = (False, f'ValueError: No such display {display}')
+        logger.error(result)
+        return result
 
         # Остановка сервиса проигрывания
     try:
         await asyncio.create_subprocess_exec('sudo', 'systemctl',
                                              'stop', machine.service_name)
-        print(f"Служба {machine.service_name} успешно остановлена.")
+        logger.info(f"Служба {machine.service_name} успешно остановлена.")
     except Exception as e:
         err = f"Service stop error: {machine.service_name}: {type(e).__name__}"
-        print(f"Ошибка при остановке службы {machine.service_name}: {e}")
+        logger.error(f"Ошибка при остановке службы {machine.service_name}: {e}")
         # Замена ссылки. Начало ---------------
 
     if os.path.islink(link):
@@ -102,10 +103,10 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
                                              'systemctl',
                                              'start',
                                              machine.service_name)
-        print(f"Служба {machine.service_name} успешно запущена.")
+        logger.info(f"Служба {machine.service_name} успешно запущена.")
     except Exception as e:
         err = f"Service start error: {machine.service_name}: {type(e).__name__}"
-        print(f"Ошибка при запуске службы {machine.service_name}: {e}")
+        logger.error(f"Ошибка при запуске службы {machine.service_name}: {e}")
 
     return (True, err)
 
@@ -142,7 +143,7 @@ async def delete_file(machine: MediaMachine,
     # ниже механизм  предотвращения одновременного доступа к файлу
     # функций: загрузки (get_file), расчета хэша (get_md5hash) и удаления
     file_handling_event = machine.get_event(filename)
-    print('Я функция delete_file, хочу удалить файл', filename, 'Жду события. Событие - ', file_handling_event)
+    logger.info(f"Файл к удалению: {filename}, Жду события. Событие - {file_handling_event}")
     await file_handling_event.wait()
     file_handling_event.clear()
     # --------------
@@ -151,7 +152,7 @@ async def delete_file(machine: MediaMachine,
         err = f'''{ValueError(
             "Я функция delete_file, Удалить невозможно: Указанный файл проигрывается в данный момент."
             )}'''
-        print(err)
+        logger.error(err)
         file_handling_event.set()
         return (False, err)
 
@@ -167,10 +168,11 @@ async def delete_file(machine: MediaMachine,
             if os.path.exists(file):
                 os.remove(file)
 
-        print(f'Я функция delete_file, {filename} удален')
+        logger.info(f'Я функция delete_file, {filename} удален')
     except Exception as e:
         err = f'{type(e).__name__}, {e}'
-        print('Я функция delete_file, ошиблась:', err)
+        logger.error('Я функция delete_file, ошиблась:', err)
+        logging.exception(e)
 
     file_handling_event.set()
     await save_json(machine)
@@ -242,7 +244,7 @@ async def get_md5(machine: MediaMachine,
 
     md5hash = filename.split('.', 1)[0] if md5hash is None else md5hash
 
-    print('Я функция get_md5, сообщаю:', (md5hash == filehash.hexdigest(), filename, filehash.hexdigest()))
+    logger.info(f"Cообщаю: {(md5hash == filehash.hexdigest(), filename, filehash.hexdigest())}")
     return (md5hash == filehash.hexdigest(), filename, filehash.hexdigest())
 
 
@@ -277,8 +279,8 @@ async def get_check_hash_and_move_file(machine: MediaMachine,
                                         url=url,
                                         filename=filename)
         except Exception as exception:
+            logger.error(f'Error in files.set_current function with {filename=} request to {url=}. {exception=} ')
             logger.error(exception)
-            print(f'Error in files.set_current function with {filename=} request to {url=}. {exception=} ')
             return
 
         # Проверяем хэш

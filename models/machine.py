@@ -5,7 +5,9 @@ import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
 import asyncio
+import logging
 
+logger = logging.getLogger(__name__)
 
 class JsonSections(Enum):
     # Описание секции джейсона для обмена

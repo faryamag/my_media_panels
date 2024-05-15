@@ -19,7 +19,7 @@ async def server_polling(machine: MediaMachine,
                          url=None):
 
     while True:
-        print("Новый цикл Загрузчика", time())
+        logger.info("Новый цикл Загрузчика")
         # Процедура запроса заднных к серверу
         # Запрос данных серверу:
         if url and 'json' in url:
@@ -34,7 +34,7 @@ async def server_polling(machine: MediaMachine,
             response = await api_requests.request_tasks(url=url)
 
         if not isinstance(response, dict):
-            print("RESPONSE=", response)
+            logger.warning(f"RESPONSE=, {response}")
             response = {}
 
         # Проверка данных в списках json ('schedule', 'current', 'delete'):
@@ -75,7 +75,7 @@ async def server_polling(machine: MediaMachine,
 
             for sch_task in new_schedule:
 
-                print("Загрузчик качает ", sch_task['filename'])
+                logger.info(f"Загрузчик качает, {sch_task['filename']=}")
                 # Качаем, сверяем, переносим
                 if {
                         'filename': sch_task.get('filename'),
@@ -108,7 +108,7 @@ async def server_polling(machine: MediaMachine,
             await asyncio.gather(*scheduled_tasks)
             await files.save_json(machine)
         except Exception as exception:
-            print(f'Глобальная ошибка в main.server_pooling {exception=}')
+            logger.exception(f'Глобальная ошибка в main.server_pooling {exception=}')
         await asyncio.sleep(interval*60)
 
 
@@ -122,7 +122,7 @@ async def main():
     config = configparser.ConfigParser()
     config.read('config.cfg')
 
-    logging.basicConfig(filename=config['local']['log_file'], level=logging.INFO, format='%(asctime)s %(levelname)s:%(module)s.%(funcName)s: %(message)s')
+    logging.basicConfig(filename=config['local']['log_file'], level=logging.INFO, encoding='utf-8', format='%(asctime)s %(levelname)s Loggername:%(name)s Function:%(module)s.%(funcName)s.%(lineno)d Message: %(message)s')
     logger.info('Started')
 
     machine = MediaMachine(
@@ -132,8 +132,7 @@ async def main():
 
     machine.files = await files.get_files_list_from_dir(machine=machine)
 
-    print(machine.working_dir)
-
+    logger.info(f'{machine.__dict__=}')
     # Добавляем фиктивные данные для теста
     machine.info['serial'] = '123test'
     machine.info['displays'].append('7')

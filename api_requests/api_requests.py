@@ -3,7 +3,9 @@ import os
 import aiofiles
 import aiohttp
 from models.machine import MediaMachine
+import logging
 
+logger = logging.getLogger(__name__)
 
 async def get_file(
         machine: MediaMachine,
@@ -26,7 +28,7 @@ async def get_file(
                             ) as response:
 
             if response.status // 400:
-                print(f"No such file: {filename}, status: {response.status}")
+                logger.warning(f"No such file: {filename}, status: {response.status}")
                 file_handling_event.set()
                 return
 
@@ -35,9 +37,9 @@ async def get_file(
                 async with aiofiles.open(downloading_path, mode) as file:
                     async for chunk in response.content.iter_chunked(chunk_write_size):
                         await file.write(chunk)
-                print("Download completed")
+                logger.info("Download completed")
             else:
-                print("Failed to resume download")
+                logger.error(f"Failed to resume download, {filename}")
 
     file_handling_event.set()
 
@@ -67,9 +69,8 @@ async def send_response(data=None, *,  url=None, headers=None, params=None):
 
     if url is None or url == 'json':
         # url = f"{machine.srv_url}/device/{machine.info['serial']}"
-        print("Эту ерунду я пошлю на сервер:")
         data = json.dumps(data, indent=2)
-        print(data)
+        logger.info(f"Эту ерунду я пошлю на сервер:{data=}")
         return False
 
     _headers = {'Content-Type': 'application/json'}
@@ -84,8 +85,8 @@ async def send_response(data=None, *,  url=None, headers=None, params=None):
                                 params=params,
                                 allow_redirects=True) as response:
 
-            print(response.url, await response.text())
-            print("data=",data)
+            logger.info(f"{response.url=}, {await response.text()}")
+            logger.info(f"{data=}")
             #if response.status in (200, 201):
             ##    tasks = await response.json()
             #    return tasks.get('json', tasks)
