@@ -288,7 +288,7 @@ async def get_check_hash_and_move_file(machine: MediaMachine,
             url = f'{machine.srv_url}/files/{current_task.md5hash}'
         # Получаем файл
 
-        raise Exception('test exception')
+        #raise Exception('test exception')
         await api_requests.get_file(machine,
                                         url=url,
                                         filename=filename)
