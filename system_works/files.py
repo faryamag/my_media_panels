@@ -8,8 +8,21 @@ from api_requests import api_requests
 from models.machine import MediaMachine, FileStates
 from models.api_collections import TaskCurrent
 import logging
+from functools import wraps
+
 
 logger = logging.getLogger(__name__)
+
+def async_log_exception_wrapper(func):
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as exception:
+            logger.exception(f"function {func.__name__=} got {exception=} with: {args=},{kwargs=}")
+
+    return wrapper
 
 def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
     # Перенос файла в рабочую директорию с проверкой
@@ -40,7 +53,7 @@ def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
         machine.files.append({'filename': filename, 'md5hash': md5hash})
     return True
 
-
+@async_log_exception_wrapper
 async def create_link(machine: MediaMachine, current_task: TaskCurrent):
 
     filename = f"{current_task.md5hash}.mp4"
@@ -110,7 +123,7 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
 
     return (True, err)
 
-
+@async_log_exception_wrapper
 async def delete_file(machine: MediaMachine,
                       filename=None,
                       md5hash=None
@@ -179,7 +192,7 @@ async def delete_file(machine: MediaMachine,
 
     return bool(err is None), err
 
-
+@async_log_exception_wrapper
 async def get_files_list_from_dir(
                             machine: MediaMachine,
                             extensions: str | list[str] | tuple[str] = 'mp4'
@@ -206,7 +219,7 @@ async def get_files_list_from_dir(
 
     return files
 
-
+@async_log_exception_wrapper
 async def get_md5(machine: MediaMachine,
                   filename,
                   chunk_size=1,
@@ -247,7 +260,7 @@ async def get_md5(machine: MediaMachine,
     logger.info(f"Cообщаю: {(md5hash == filehash.hexdigest(), filename, filehash.hexdigest())}")
     return (md5hash == filehash.hexdigest(), filename, filehash.hexdigest())
 
-
+@async_log_exception_wrapper
 async def save_json(machine: MediaMachine):
     async with aiofiles.open(
         os.path.abspath(
@@ -262,7 +275,7 @@ async def save_json(machine: MediaMachine):
         await db_json.write(full_json)
     return
 
-
+@async_log_exception_wrapper
 async def get_check_hash_and_move_file(machine: MediaMachine,
                                        current_task: TaskCurrent):
     filename = f'{current_task.md5hash}.mp4'
@@ -280,8 +293,8 @@ async def get_check_hash_and_move_file(machine: MediaMachine,
                                         filename=filename)
         except Exception as exception:
             logger.error(f'Error in files.set_current function with {filename=} request to {url=}. {exception=} ')
-            logger.error(exception)
-            return
+            #logger.exception(exception)
+            raise Exception('test exception')
 
         # Проверяем хэш
         hash_task = asyncio.create_task(get_md5(machine,
@@ -292,6 +305,7 @@ async def get_check_hash_and_move_file(machine: MediaMachine,
             lambda task: move_to_working_dir(task, machine))
         await hash_task
 
+@async_log_exception_wrapper
 async def set_current(machine: MediaMachine,
                       current_task: TaskCurrent) -> tuple[bool, str]:
     ''' Установка файла с именем file в качестве актуального, в случае передачи
@@ -300,7 +314,7 @@ async def set_current(machine: MediaMachine,
     себя ссылку в рабочем каталоги вида {display_name}_media.mp4 '''
 
     # link = os.path.abspath(f'{machine.working_dir}/{current_task.display}_media.mp4')
-
+    logger.info(f'{machine.__dict__=} {current_task.__dict__=} ')
     await get_check_hash_and_move_file(machine=machine, current_task=current_task)
     err = None
 
