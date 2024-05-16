@@ -16,13 +16,14 @@ logger = logging.getLogger(__name__)
 def async_log_exception_wrapper(func):
 
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def log_exception_wrapper(*args, **kwargs):
+        __name__ = getattr(func, '__name__')
         try:
             return await func(*args, **kwargs)
         except Exception as exception:
             logger.exception(f"function {func.__name__=} got {exception=} with: {args=},{kwargs=}")
 
-    return wrapper
+    return log_exception_wrapper
 
 def move_to_working_dir(file_task: asyncio.Task, machine: MediaMachine):
     # Перенос файла в рабочую директорию с проверкой
@@ -286,15 +287,11 @@ async def get_check_hash_and_move_file(machine: MediaMachine,
         if url is None:
             url = f'{machine.srv_url}/files/{current_task.md5hash}'
         # Получаем файл
-        try:
-            raise Exception('test exception')
-            await api_requests.get_file(machine,
+
+        raise Exception('test exception')
+        await api_requests.get_file(machine,
                                         url=url,
                                         filename=filename)
-        except Exception as exception:
-            logger.error(f'Error in files.set_current function with {filename=} request to {url=}. {exception=} ')
-            #logger.exception(exception)
-            raise Exception('test exception')
 
         # Проверяем хэш
         hash_task = asyncio.create_task(get_md5(machine,
