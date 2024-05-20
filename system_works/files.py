@@ -75,8 +75,9 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
 
         # Остановка сервиса проигрывания
     try:
-        await asyncio.create_subprocess_exec('sudo', 'systemctl',
+        process = await asyncio.create_subprocess_exec('sudo', 'systemctl',
                                              'stop', machine.service_name)
+        await process.communicate()
         logger.info(f"Служба {machine.service_name} успешно остановлена.")
     except Exception as e:
         err = f"Service stop error: {machine.service_name}: {type(e).__name__}"
@@ -114,10 +115,11 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
     # Замена ссылки. Конец ---------------------
     # Запуск сервиса проигрывания
     try:
-        await asyncio.create_subprocess_exec('sudo',
+        process = await asyncio.create_subprocess_exec('sudo',
                                              'systemctl',
                                              'start',
                                              machine.service_name)
+        await process.communicate()
         logger.info(f"Служба {machine.service_name} успешно запущена.")
     except Exception as e:
         err = f"Service start error: {machine.service_name}: {type(e).__name__}"
