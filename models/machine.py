@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 def async_log_exception_wrapper(func):
 
-    @wraps(func)
     async def log_exception_wrapper(*args, **kwargs):
         __name__ = getattr(func, '__name__')
         try:
