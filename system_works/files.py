@@ -81,6 +81,7 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
     except Exception as e:
         err = f"Service stop error: {machine.service_name}: {type(e).__name__}"
         logger.error(f"Ошибка при остановке службы {machine.service_name}: {e}")
+        logger.exception(e)
         # Замена ссылки. Начало ---------------
 
     if os.path.islink(link):
@@ -121,7 +122,7 @@ async def create_link(machine: MediaMachine, current_task: TaskCurrent):
     except Exception as e:
         err = f"Service start error: {machine.service_name}: {type(e).__name__}"
         logger.error(f"Ошибка при запуске службы {machine.service_name}: {e}")
-
+        logger.exception(e)
     return (True, err)
 
 @async_log_exception_wrapper
