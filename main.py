@@ -122,7 +122,8 @@ async def main():
     config = configparser.ConfigParser()
     config.read('config.cfg')
 
-    logging.basicConfig(filename=config['local']['log_file'], level=logging.INFO, encoding='utf-8', format='%(asctime)s %(levelname)s Loggername:%(name)s Function:%(module)s.%(funcName)s.%(lineno)d Message: %(message)s')
+
+    logging.basicConfig(filename=config['local']['log_file'], level=config['local']['loglevel'], encoding='utf-8', format='%(asctime)s %(levelname)s Loggername:%(name)s Function:%(module)s.%(funcName)s.%(lineno)d Message: %(message)s')
     logger.info('Started')
 
     machine = MediaMachine(
@@ -151,3 +152,4 @@ async def main():
 
 
 asyncio.run(main())
+#print(logging.INFO)
