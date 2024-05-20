@@ -9,6 +9,20 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def async_log_exception_wrapper(func):
+
+    @wraps(func)
+    async def log_exception_wrapper(*args, **kwargs):
+        __name__ = getattr(func, '__name__')
+        try:
+            return await func(*args, **kwargs)
+        except Exception as exception:
+            logger.exception(f"function {func.__name__=} got {exception=} with: {args=},{kwargs=}")
+
+    return log_exception_wrapper
+
+
 class JsonSections(Enum):
     # Описание секции джейсона для обмена
 
@@ -73,7 +87,7 @@ class MediaMachine:
         # Получаем инфо с raspberry в виде
         # {'displays':[], 'Revision':str, 'Model':str, 'Serial':str}
         # только для  raspberry!
-
+        logger.info('Получаем инфо машины')
         disp = subprocess.run(
             "kmsprint | grep Connector | awk '{print $4}'",
             shell=True, capture_output=True, text=True
@@ -96,6 +110,7 @@ class MediaMachine:
         sys_info.update({'working_dir': self.working_dir})
         sys_info.update({'downloading_dir': self.downloading_dir})
 
+        logger.info(f"Инфо машины:{sys_info}")
         return sys_info
 
     def get_event(self, eventname: str) -> asyncio.Event:
