@@ -10,12 +10,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def async_log_exception_wrapper(func):
+def log_exception_wrapper(func):
 
-    async def log_exception_wrapper(*args, **kwargs):
+    def log_exception_wrapper(*args, **kwargs):
         __name__ = getattr(func, '__name__')
         try:
-            return await func(*args, **kwargs)
+            return func(*args, **kwargs)
         except Exception as exception:
             logger.exception(f"function {func.__name__=} got {exception=} with: {args=},{kwargs=}")
 
@@ -81,7 +81,7 @@ class MediaMachine:
         self.info = self.get_info()
         # self.scheduler.sort(key=lambda x: datetime.strptime(x['from_date'], self.from_date_format))
 
-    @async_log_exception_wrapper
+    @log_exception_wrapper
     def get_info(self) -> dict:
         # Получаем инфо с raspberry в виде
         # {'displays':[], 'Revision':str, 'Model':str, 'Serial':str}
