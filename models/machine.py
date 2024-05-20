@@ -82,7 +82,7 @@ class MediaMachine:
         self.info = self.get_info()
         # self.scheduler.sort(key=lambda x: datetime.strptime(x['from_date'], self.from_date_format))
 
-
+    @async_log_exception_wrapper
     def get_info(self) -> dict:
         # Получаем инфо с raspberry в виде
         # {'displays':[], 'Revision':str, 'Model':str, 'Serial':str}
@@ -110,7 +110,7 @@ class MediaMachine:
         sys_info.update({'working_dir': self.working_dir})
         sys_info.update({'downloading_dir': self.downloading_dir})
 
-        logger.info(f"Инфо машины:{sys_info}")
+        logger.debug(f"Инфо машины:{sys_info}")
         return sys_info
 
     def get_event(self, eventname: str) -> asyncio.Event:
