@@ -98,6 +98,7 @@ class MediaMachine:
             capture_output=True,
             text=True
             )
+        logger.debug(f"MACHINE SYSTEM:{syst}")
 
         sys_info = dict(
             (x.strip().split('\t:', 1)[0].strip().lower(), x.strip().split('\t:', 1)[0].strip())
@@ -112,6 +113,7 @@ class MediaMachine:
         logger.debug(f"Инфо машины:{sys_info}")
         return sys_info
 
+    @log_exception_wrapper
     def get_event(self, eventname: str) -> asyncio.Event:
         '''Проверяет или заводит событие для контроля доступа к объекту(файлу)
         инициирует и возвращает его'''
