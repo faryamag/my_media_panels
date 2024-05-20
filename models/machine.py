@@ -101,7 +101,7 @@ class MediaMachine:
         logger.debug(f"MACHINE SYSTEM:{syst}")
 
         sys_info = dict(
-            (x.strip().split('\t:', 1)[0].strip().lower(), x.strip().split('\t:', 1)[0].strip())
+            (x.strip().split('\t:', 1)[0].strip().lower(), x.strip().split('\t:', 1)[1].strip())
             for x in syst.stdout.split('\n') if x
             )
 
